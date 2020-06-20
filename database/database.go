@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
-	"github.com/tachanokkik/finalexam/customer"
 	"log"
 	"os"
 )
@@ -17,13 +16,20 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS customers (id SERIAL PRIMARY KEY, name TEXT, email TEXT, status TEXT);")
+	if err != nil {
+		log.Fatal("can't create table customers ", err)
+	}
+
+	fmt.Println("create table success.")
 }
 
 type Connection interface {
-	CreateCustomer(customer customer.Customer) error
-	GetById(id int) (*customer.Customer, error)
-	GetAll() ([]*customer.Customer, error)
-	UpdateById(id int, customer customer.Customer) error
+	CreateCustomer(customer *Customer) error
+	GetById(id int) (*Customer, error)
+	GetAll() ([]*Customer, error)
+	UpdateById(id int, customer *Customer) error
 	DeleteById(id int) error
 }
 
@@ -37,7 +43,14 @@ func Conn() Connection {
 	}
 }
 
-func (c *connection) CreateCustomer(customer customer.Customer) error {
+type Customer struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Status string `json:"status"`
+}
+
+func (c *connection) CreateCustomer(customer *Customer) error {
 	row := c.conn.QueryRow("INSERT INTO customers (name, email, status) values ($1, $2, $3) RETURNING id", customer.Name, customer.Email, customer.Status)
 
 	err := row.Scan(&customer.ID)
@@ -47,8 +60,8 @@ func (c *connection) CreateCustomer(customer customer.Customer) error {
 	return nil
 }
 
-func (c *connection) GetById(id int) (*customer.Customer, error) {
-	customer := customer.Customer{ID: id}
+func (c *connection) GetById(id int) (*Customer, error) {
+	customer := Customer{ID: id}
 
 	stmt, err := c.conn.Prepare("SELECT name, email, status FROM customers where id=$1")
 	if err != nil {
@@ -64,8 +77,8 @@ func (c *connection) GetById(id int) (*customer.Customer, error) {
 	return &customer, nil
 }
 
-func (c *connection) GetAll() ([]*customer.Customer, error) {
-	var customers []*customer.Customer
+func (c *connection) GetAll() ([]*Customer, error) {
+	var customers []*Customer
 
 	stmt, err := c.conn.Prepare("SELECT * FROM customers")
 	if err != nil {
@@ -78,9 +91,9 @@ func (c *connection) GetAll() ([]*customer.Customer, error) {
 	}
 
 	for rows.Next() {
-		customer := &customer.Customer{}
+		customer := &Customer{}
 
-		err := rows.Scan(&customer)
+		err := rows.Scan(&customer.ID, &customer.Name, &customer.Email, &customer.Status)
 		if err != nil {
 			return customers, fmt.Errorf("can't scan get statement: %w", err)
 		}
@@ -91,20 +104,20 @@ func (c *connection) GetAll() ([]*customer.Customer, error) {
 	return customers, nil
 }
 
-func (c *connection) UpdateById(id int, customer customer.Customer) error {
+func (c *connection) UpdateById(id int, customer *Customer) error {
 	stmt, err := c.conn.Prepare("UPDATE customers SET name=$2, email=$3, status=$4 WHERE id=$1;")
 	if err != nil {
 		return fmt.Errorf("can't prepare update statement: %w", err)
 	}
 
-	if _, err := stmt.Exec(id, customer.Name, customer.Email, customer.Status); err != nil {
+	if _, err := stmt.Exec(id, &customer.Name, &customer.Email, &customer.Status); err != nil {
 		return fmt.Errorf("can't execute update statment: %w", err)
 	}
 	return nil
 }
 
 func (c *connection) DeleteById(id int) error {
-	stmt, err := c.conn.Prepare("DELETE FROM customerss WHERE name = $1")
+	stmt, err := c.conn.Prepare("DELETE FROM customers WHERE name = $1")
 	if err != nil {
 		return fmt.Errorf("can't prepare delete statement: %w", err)
 	}

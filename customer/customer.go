@@ -10,13 +10,13 @@ import (
 )
 
 func createCustomerHandler(c *gin.Context) {
-	customer := Customer{}
+	customer := database.Customer{}
 	if err := c.ShouldBindJSON(&customer); err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
 	conn := database.Conn()
-	err := conn.CreateCustomer(customer)
+	err := conn.CreateCustomer(&customer)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err)
 		return
@@ -60,14 +60,14 @@ func updateCustomerByIdHandler(c *gin.Context) {
 		return
 	}
 
-	customer := Customer{}
+	customer := database.Customer{}
 	if err := c.ShouldBindJSON(&customer); err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
 
 	conn := database.Conn()
-	if err := conn.UpdateById(id, customer); err != nil {
+	if err := conn.UpdateById(id, &customer); err != nil {
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
@@ -86,7 +86,7 @@ func deleteCustomerByIdHandler(c *gin.Context) {
 	if err := conn.DeleteById(id); err != nil {
 		c.JSON(http.StatusInternalServerError, err)
 	}
-	c.JSON(http.StatusOK, "deleted customer.")
+	c.JSON(http.StatusOK, gin.H{"message":"customer deleted"})
 }
 
 func SetupRouter() *gin.Engine {
@@ -94,10 +94,10 @@ func SetupRouter() *gin.Engine {
 	r.Use(AuthMiddleware)
 
 	r.POST("/customers", createCustomerHandler)
-	r.GET("/customers/:name", getCustomerByIdHandler)
+	r.GET("/customers/:id", getCustomerByIdHandler)
 	r.GET("/customers", getCustomerAllHandler)
-	r.PUT("/customers/:name", updateCustomerByIdHandler)
-	r.DELETE("/customers/:name", deleteCustomerByIdHandler)
+	r.PUT("/customers/:id", updateCustomerByIdHandler)
+	r.DELETE("/customers/:id", deleteCustomerByIdHandler)
 
 	return r
 }
